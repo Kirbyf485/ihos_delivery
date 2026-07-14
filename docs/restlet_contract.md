@@ -13,8 +13,8 @@ Recommended IDs:
 ```text
 UNSIGNED_SCRIPT_ID=customscript_ops_packing_slip_restlet
 UNSIGNED_DEPLOYMENT_ID=customdeploy_ops_packing_slip_restlet
-SIGNED_SCRIPT_ID=customscript_ops_signed_packing_slip_restlet
-SIGNED_DEPLOYMENT_ID=customdeploy_ops_signed_packing_slip_restlet
+SIGNED_SCRIPT_ID=customscript_ops_signed_packing_slip_res
+SIGNED_DEPLOYMENT_ID=customdeploy_ops_signed_packing_slip_res
 ```
 
 ## Unsigned Packing Slip RESTlet
@@ -132,7 +132,13 @@ ops_signed_packing_slip_restlet.js
 Script parameter:
 
 ```text
-custscript_ops_signed_ps_folder_id=<File Cabinet folder internal ID>
+custscript_ops_signed_ps_folder_id=555058
+```
+
+Current folder:
+
+```text
+Signed Delivery Tickets
 ```
 
 ### Method

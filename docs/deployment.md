@@ -58,7 +58,7 @@ Recommended IDs:
 
 ```text
 Name:          Ops Signed Packing Slip RESTlet
-Script ID:     customscript_ops_signed_packing_slip_restlet
+Script ID:     customscript_ops_signed_packing_slip_res
 API Version:   2.1
 Script Type:   RESTlet
 ```
@@ -71,14 +71,20 @@ Create this required parameter on the signed script record:
 | --- | --- | --- | --- | --- |
 | Signed Packing Slip Folder ID | `custscript_ops_signed_ps_folder_id` | Integer | Yes | File Cabinet folder internal ID where signed PDFs are saved. |
 
-Use a dedicated File Cabinet folder for signed delivery documents.
+Use this folder for the current IHOS deployment:
+
+```text
+Folder:      Signed Delivery Tickets
+Internal ID: 555058
+Parameter:   custscript_ops_signed_ps_folder_id=555058
+```
 
 ## 7. Create the signed packing slip deployment
 
 Recommended deployment:
 
 ```text
-Deployment ID: customdeploy_ops_signed_packing_slip_restlet
+Deployment ID: customdeploy_ops_signed_packing_slip_res
 Status:        Released
 Audience:      Integration role only
 Log Level:     Audit or Debug during testing, Audit in production
@@ -126,14 +132,14 @@ NETSUITE_PACKING_SLIP_RESTLET_DEPLOYMENT_ID=customdeploy_ops_packing_slip_restle
 Signed packing slip RESTlet, direct URL:
 
 ```text
-NETSUITE_SIGNED_PACKING_SLIP_RESTLET_URL=https://<ACCOUNT>.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=customscript_ops_signed_packing_slip_restlet&deploy=customdeploy_ops_signed_packing_slip_restlet
+NETSUITE_SIGNED_PACKING_SLIP_RESTLET_URL=https://<ACCOUNT>.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=customscript_ops_signed_packing_slip_res&deploy=customdeploy_ops_signed_packing_slip_res
 ```
 
 Or configure signed script/deployment IDs and let the Ops Portal build the URL:
 
 ```text
-NETSUITE_SIGNED_PACKING_SLIP_RESTLET_SCRIPT_ID=customscript_ops_signed_packing_slip_restlet
-NETSUITE_SIGNED_PACKING_SLIP_RESTLET_DEPLOYMENT_ID=customdeploy_ops_signed_packing_slip_restlet
+NETSUITE_SIGNED_PACKING_SLIP_RESTLET_SCRIPT_ID=customscript_ops_signed_packing_slip_res
+NETSUITE_SIGNED_PACKING_SLIP_RESTLET_DEPLOYMENT_ID=customdeploy_ops_signed_packing_slip_res
 ```
 
 Token-Based Auth values:

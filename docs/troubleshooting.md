@@ -32,7 +32,7 @@ Check the script or deployment parameter:
 custscript_ops_signed_ps_folder_id
 ```
 
-The value must be the internal ID of the destination File Cabinet folder.
+The value must be the internal ID of the destination File Cabinet folder. For the current IHOS deployment, use `555058` for `Signed Delivery Tickets`.
 
 ## `SIGNED_PACKING_SLIP_ALREADY_EXISTS`
 

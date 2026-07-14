@@ -40,9 +40,9 @@ ops_signed_packing_slip_restlet.js
 Suggested NetSuite IDs:
 
 ```text
-Script ID:      customscript_ops_signed_packing_slip_restlet
-Deployment ID:  customdeploy_ops_signed_packing_slip_restlet
-Folder Param:   custscript_ops_signed_ps_folder_id
+Script ID:      customscript_ops_signed_packing_slip_res
+Deployment ID:  customdeploy_ops_signed_packing_slip_res
+Folder Param:   custscript_ops_signed_ps_folder_id=555058
 ```
 
 The unsigned RESTlet accepts JSON via `POST` and query parameters via `GET`. `POST` is the intended server-to-server path.
@@ -86,7 +86,7 @@ Example success response:
 }
 ```
 
-The signed RESTlet accepts a server-generated signed PDF from the Ops Portal, saves it to the configured File Cabinet folder, and attaches the same file to the Item Fulfillment and originating Sales Order. It does not update transaction fields.
+The signed RESTlet accepts a server-generated signed PDF from the Ops Portal, saves it to the configured File Cabinet folder, and attaches the same file to the Item Fulfillment and originating Sales Order. The current signed delivery folder is `555058` (`Signed Delivery Tickets`). It does not update transaction fields.
 
 ## Documentation
 
