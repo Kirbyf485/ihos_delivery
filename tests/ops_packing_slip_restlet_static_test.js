@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const scriptPath = path.resolve(__dirname, '../netsuite/SuiteScripts/ops_packing_slip_restlet.js');
+const scriptPath = path.resolve(__dirname, '../ops_packing_slip_restlet.js');
 const source = fs.readFileSync(scriptPath, 'utf8');
 
 let exportedModule = null;

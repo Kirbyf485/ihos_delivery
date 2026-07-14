@@ -5,7 +5,7 @@
 Upload this file to NetSuite:
 
 ```text
-netsuite/SuiteScripts/ops_packing_slip_restlet.js
+ops_packing_slip_restlet.js
 ```
 
 Recommended File Cabinet folder:

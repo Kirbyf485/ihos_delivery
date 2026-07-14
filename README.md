@@ -9,11 +9,7 @@ Phase 1 is intentionally narrow: the Ops Portal sends an Item Fulfillment number
 ```text
 ihos_delivery/
 ├── README.md
-├── netsuite/
-│   ├── SuiteScripts/
-│   │   └── ops_packing_slip_restlet.js
-│   ├── Objects/
-│   └── FileCabinet/
+├── ops_packing_slip_restlet.js
 ├── docs/
 ├── tests/
 └── mock_data/
@@ -24,7 +20,7 @@ ihos_delivery/
 Primary script:
 
 ```text
-netsuite/SuiteScripts/ops_packing_slip_restlet.js
+ops_packing_slip_restlet.js
 ```
 
 Suggested NetSuite IDs:
