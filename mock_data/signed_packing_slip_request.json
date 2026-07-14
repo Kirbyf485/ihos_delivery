@@ -1,0 +1,14 @@
+{
+  "item_fulfillment_internal_id": "12345",
+  "item_fulfillment_number": "IF123456",
+  "sales_order_internal_id": "67890",
+  "sales_order_number": "SO987654",
+  "file_name": "Signed Packing Slip - IF123456 - 2026-07-14.pdf",
+  "content_type": "application/pdf",
+  "encoding": "base64",
+  "data": "JVBERi0xLjQKJSVFT0Y=",
+  "printed_name": "John Smith",
+  "signed_at": "2026-07-14T21:30:00Z",
+  "submitted_by": "Admin User",
+  "delivery_notes": "Delivered to receiving department."
+}

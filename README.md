@@ -2,7 +2,7 @@
 
 This repository contains the NetSuite-side integration for the IHOS Ops Portal delivery workflow.
 
-Phase 1 is intentionally narrow: the Ops Portal sends an Item Fulfillment number or internal ID, NetSuite resolves the Item Fulfillment, renders the existing packing slip PDF, and returns the PDF to the Ops Portal. This project does not capture signatures, upload files, attach documents, email customers, or modify NetSuite records.
+The Ops Portal owns the browser UI, signature capture, PDF generation, and server-to-server calls. This repository owns the SuiteScript RESTlets that NetSuite runs.
 
 ## Structure
 
@@ -10,14 +10,15 @@ Phase 1 is intentionally narrow: the Ops Portal sends an Item Fulfillment number
 ihos_delivery/
 ├── README.md
 ├── ops_packing_slip_restlet.js
+├── ops_signed_packing_slip_restlet.js
 ├── docs/
 ├── tests/
 └── mock_data/
 ```
 
-## RESTlet
+## RESTlets
 
-Primary script:
+Unsigned packing slip retrieval:
 
 ```text
 ops_packing_slip_restlet.js
@@ -30,7 +31,21 @@ Script ID:      customscript_ops_packing_slip_restlet
 Deployment ID:  customdeploy_ops_packing_slip_restlet
 ```
 
-The RESTlet accepts JSON via `POST` and query parameters via `GET`. `POST` is the intended server-to-server path.
+Signed packing slip upload and attachment:
+
+```text
+ops_signed_packing_slip_restlet.js
+```
+
+Suggested NetSuite IDs:
+
+```text
+Script ID:      customscript_ops_signed_packing_slip_restlet
+Deployment ID:  customdeploy_ops_signed_packing_slip_restlet
+Folder Param:   custscript_ops_signed_ps_folder_id
+```
+
+The unsigned RESTlet accepts JSON via `POST` and query parameters via `GET`. `POST` is the intended server-to-server path.
 
 Example request:
 
@@ -71,6 +86,8 @@ Example success response:
 }
 ```
 
+The signed RESTlet accepts a server-generated signed PDF from the Ops Portal, saves it to the configured File Cabinet folder, and attaches the same file to the Item Fulfillment and originating Sales Order. It does not update transaction fields.
+
 ## Documentation
 
 - [Deployment](docs/deployment.md)
@@ -79,16 +96,15 @@ Example success response:
 
 ## Local Checks
 
-The included test is a static loader check for the SuiteScript module. It does not call NetSuite.
+The included tests are static loader checks for the SuiteScript modules. They do not call NetSuite.
 
 ```bash
 node tests/ops_packing_slip_restlet_static_test.js
+node tests/ops_signed_packing_slip_restlet_static_test.js
 ```
 
-## Phase 1 Limitations
+## Current Limitations
 
-- No signature capture.
-- No File Cabinet uploads.
-- No Sales Order or Item Fulfillment attachments.
-- No NetSuite record updates.
 - No customer-facing or mobile flow.
+- No offline mode, barcode scanning, or public employee app.
+- The signed RESTlet saves a File Cabinet file and creates file attachments only; it does not edit Item Fulfillment or Sales Order fields.

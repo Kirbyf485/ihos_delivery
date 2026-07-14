@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "item_fulfillment": {
+    "internal_id": "12345",
+    "transaction_number": "IF123456"
+  },
+  "sales_order": {
+    "internal_id": "67890",
+    "transaction_number": "SO987654"
+  },
+  "signed_document": {
+    "file_id": "55555",
+    "file_name": "Signed Packing Slip - IF123456 - 2026-07-14.pdf",
+    "attached_to_item_fulfillment": true,
+    "attached_to_sales_order": true
+  }
+}
