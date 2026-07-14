@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "item_fulfillment": {
+    "internal_id": "12345",
+    "transaction_number": "IF123456",
+    "sales_order_internal_id": "67890",
+    "sales_order_number": "SO987654",
+    "customer_name": "Example Customer",
+    "fulfillment_date": "2026-07-14",
+    "shipping_address": "123 Main Street",
+    "status": "Shipped"
+  },
+  "pdf": {
+    "content_type": "application/pdf",
+    "file_name": "Packing Slip - IF123456.pdf",
+    "data": "JVBERi0xLjQKJSVFT0Y="
+  }
+}
