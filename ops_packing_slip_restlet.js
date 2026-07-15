@@ -239,10 +239,10 @@ define([
         if (!text) {
             return '';
         }
-        if (!/^PO[0-9A-Z][0-9A-Z._-]{0,38}$/.test(text)) {
+        if (/^IF/.test(text) || !/^(?=.{2,40}$)[0-9A-Z][0-9A-Z._-]*[0-9A-Z]$/.test(text)) {
             throw makeIntegrationError(
                 'INVALID_PURCHASE_ORDER_NUMBER',
-                'Purchase Order number must look like PO123456.'
+                'Enter the exact Purchase Order number from NetSuite, like XX.123456.'
             );
         }
         return text;

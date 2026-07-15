@@ -70,5 +70,10 @@ assert(!/record\.submitFields\s*\(/.test(source), 'RESTlet must not update recor
 assert(!/\.save\s*\(/.test(source), 'RESTlet must not save NetSuite records.');
 assert(!/record\.delete\s*\(/.test(source), 'RESTlet must not delete NetSuite records.');
 assert(!/file\.create\s*\(/.test(source), 'Phase 1 must not create File Cabinet files.');
+assert(source.includes('XX.123456'), 'Purchase Order validation should show the generic XX.123456 example.');
+assert(
+  /normalizePurchaseOrderNumber[\s\S]*\(\?=.\{2,40\}\$\)\[0-9A-Z\]\[0-9A-Z\._-\]\*\[0-9A-Z\]/.test(source),
+  'Purchase Order validation should not require a PO prefix.'
+);
 
 console.log('ops_packing_slip_restlet_static_test passed');
