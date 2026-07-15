@@ -56,6 +56,12 @@ The RESTlet response includes:
 
 Use the returned file ID to verify the File Cabinet file, then check the integration role's access to the Item Fulfillment and Sales Order records.
 
+## `SIGNED_STATUS_UPDATE_FAILURE`
+
+The signed PDF was saved and attached to both records, but NetSuite could not set `custbody_dt_signed_status` to true on the Item Fulfillment.
+
+Use the returned file ID to verify the attached PDF, then check that the integration role can edit the Item Fulfillment and the `custbody_dt_signed_status` custom body field.
+
 ## Empty or Invalid PDF
 
 Check that:
@@ -74,6 +80,7 @@ Check that:
 - The File Cabinet folder exists and the folder ID parameter is numeric.
 - The integration role can create files in that folder.
 - The integration role can attach files to Item Fulfillment and Sales Order records.
+- The integration role can edit the Item Fulfillment custom body field `custbody_dt_signed_status`.
 - The submitted PDF starts with `%PDF` after base64 decoding.
 
 ## Authentication Failures from Ops Portal
@@ -103,6 +110,7 @@ The integration role should be able to:
 - Print/render transactions.
 - Create File Cabinet files in the signed packing slip destination folder.
 - Attach files to Item Fulfillments and Sales Orders.
+- Edit the Item Fulfillment custom body field `custbody_dt_signed_status`.
 - Use Lists -> Documents and Files.
 
-The unsigned RESTlet does not need File Cabinet write permissions. The signed RESTlet does need File Cabinet create access and attachment access.
+The unsigned RESTlet does not need File Cabinet write permissions. The signed RESTlet needs File Cabinet create access, attachment access, and permission to update `custbody_dt_signed_status` on Item Fulfillments.

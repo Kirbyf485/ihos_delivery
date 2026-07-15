@@ -108,9 +108,10 @@ Create or reuse an integration role with the least permissions needed to:
 - Access the RESTlet script deployment.
 - Create File Cabinet files in the signed packing slip destination folder.
 - Attach files to Item Fulfillment and Sales Order records.
+- Edit the Item Fulfillment custom body field `custbody_dt_signed_status`.
 - Lists -> Documents and Files permission for File Cabinet access.
 
-The unsigned RESTlet does not modify NetSuite records. The signed RESTlet creates one File Cabinet PDF and attaches that same file to the Item Fulfillment and Sales Order. It does not edit transaction fields.
+The unsigned RESTlet does not modify NetSuite records. The signed RESTlet creates one File Cabinet PDF, attaches that same file to the Item Fulfillment and Sales Order, and updates only `custbody_dt_signed_status` on the Item Fulfillment after both attachments succeed.
 
 ## 10. Ops Portal environment variables
 
@@ -198,8 +199,9 @@ Signed workflow test through Ops Portal:
 1. Open `/admin/packing-slips` as an admin.
 2. Enter a real Item Fulfillment number.
 3. Confirm the unsigned PDF preview renders.
-4. Draw a signature, enter a printed name, and optionally enter delivery notes.
+4. Draw a signature, enter a printed name, and optionally attach a delivery photo.
 5. Submit the signed packing slip.
 6. Confirm the Ops Portal success message includes the NetSuite file ID.
 7. In NetSuite, verify the signed PDF exists in the configured File Cabinet folder.
 8. Verify the same file is attached to the Item Fulfillment and originating Sales Order.
+9. Verify `custbody_dt_signed_status` is true on the Item Fulfillment.

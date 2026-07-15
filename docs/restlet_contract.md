@@ -162,7 +162,7 @@ The browser must not call this RESTlet directly.
   "printed_name": "John Smith",
   "signed_at": "2026-07-14T21:30:00Z",
   "submitted_by": "Admin User (user 1)",
-  "delivery_notes": "Delivered to receiving department."
+  "delivery_photo_file_name": "receiving.png"
 }
 ```
 
@@ -175,6 +175,7 @@ Validation rules:
 - `encoding` must be `base64`.
 - `data` must be base64 PDF data beginning with `%PDF` after decoding.
 - `custscript_ops_signed_ps_folder_id` must be configured with a numeric File Cabinet folder internal ID.
+- The RESTlet updates `custbody_dt_signed_status` to true on the Item Fulfillment only after the PDF is attached to both the Item Fulfillment and Sales Order.
 
 ### Success Response
 
@@ -193,7 +194,8 @@ Validation rules:
     "file_id": "55555",
     "file_name": "Signed Packing Slip - IF123456 - 2026-07-14.pdf",
     "attached_to_item_fulfillment": true,
-    "attached_to_sales_order": true
+    "attached_to_sales_order": true,
+    "signed_status_updated": true
   }
 }
 ```
@@ -229,6 +231,7 @@ Common signed RESTlet codes:
 - `SIGNED_PACKING_SLIP_ALREADY_EXISTS`
 - `FILE_SAVE_FAILURE`
 - `PARTIAL_ATTACHMENT_FAILURE`
+- `SIGNED_STATUS_UPDATE_FAILURE`
 
 ### Logging
 
@@ -238,6 +241,7 @@ The signed RESTlet logs:
 - Item Fulfillment number and internal ID
 - File Cabinet save success
 - attachment failures
+- signed status update success or failure
 - final success or failure
 
 It does not log credentials, OAuth headers, or PDF contents.
@@ -256,8 +260,9 @@ Browser JSON:
 {
   "signature_data_url": "data:image/png;base64,...",
   "printed_name": "John Smith",
-  "delivery_notes": "Delivered to receiving department."
+  "photo_data_url": "data:image/jpeg;base64,...",
+  "photo_file_name": "receiving.jpg"
 }
 ```
 
-The Ops Portal derives NetSuite internal IDs from server-side lookup data. The browser must not provide Item Fulfillment or Sales Order internal IDs.
+The Ops Portal derives NetSuite internal IDs from server-side lookup data. The browser must not provide Item Fulfillment or Sales Order internal IDs. If a photo is supplied, the Ops Portal appends it into the signed PDF before calling NetSuite; NetSuite does not receive or store a separate image file.

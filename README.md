@@ -86,7 +86,7 @@ Example success response:
 }
 ```
 
-The signed RESTlet accepts a server-generated signed PDF from the Ops Portal, saves it to the configured File Cabinet folder, and attaches the same file to the Item Fulfillment and originating Sales Order. The current signed delivery folder is `555058` (`Signed Delivery Tickets`). It does not update transaction fields.
+The signed RESTlet accepts a server-generated signed PDF from the Ops Portal, saves it to the configured File Cabinet folder, attaches the same file to the Item Fulfillment and originating Sales Order, then marks `custbody_dt_signed_status` true on the Item Fulfillment. The current signed delivery folder is `555058` (`Signed Delivery Tickets`).
 
 ## Documentation
 
@@ -107,4 +107,4 @@ node tests/ops_signed_packing_slip_restlet_static_test.js
 
 - No customer-facing or mobile flow.
 - No offline mode, barcode scanning, or public employee app.
-- The signed RESTlet saves a File Cabinet file and creates file attachments only; it does not edit Item Fulfillment or Sales Order fields.
+- The signed RESTlet saves a File Cabinet file, creates file attachments, and updates only the Item Fulfillment `custbody_dt_signed_status` field.

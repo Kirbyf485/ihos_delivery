@@ -32,6 +32,7 @@ const stubs = {
       SALES_ORDER: 'salesorder',
     },
     attach: () => undefined,
+    submitFields: () => undefined,
   },
   'N/runtime': {
     getCurrentScript: () => ({
@@ -65,7 +66,9 @@ assert(source.includes('file.create'), 'Signed RESTlet must create a File Cabine
 assert(source.includes('createdfrom'), 'Signed RESTlet must validate the Item Fulfillment source Sales Order.');
 assert(source.includes('SIGNED_PACKING_SLIP_ALREADY_EXISTS'), 'Signed RESTlet must detect duplicate submissions.');
 assert(source.includes('PARTIAL_ATTACHMENT_FAILURE'), 'Signed RESTlet must report partial attachment failure.');
-assert(!/record\.submitFields\s*\(/.test(source), 'Signed RESTlet must not update transaction fields.');
+assert(source.includes('custbody_dt_signed_status'), 'Signed RESTlet must update the signed status custom field.');
+assert(/record\.submitFields\s*\(/.test(source), 'Signed RESTlet must submit the signed status field update.');
+assert(source.includes('SIGNED_STATUS_UPDATE_FAILURE'), 'Signed RESTlet must report signed status update failures.');
 assert(!/record\.delete\s*\(/.test(source), 'Signed RESTlet must not delete NetSuite records.');
 assert(!/record\.create\s*\(/.test(source), 'Signed RESTlet must not create NetSuite transaction records.');
 

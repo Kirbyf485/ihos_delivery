@@ -21,6 +21,7 @@ define([
     'use strict';
 
     var PARAM_SIGNED_FOLDER_ID = 'custscript_ops_signed_ps_folder_id';
+    var FIELD_SIGNED_STATUS = 'custbody_dt_signed_status';
     var MAX_BASE64_PDF_LENGTH = 40 * 1024 * 1024;
 
     function post(requestBody) {
@@ -112,13 +113,41 @@ define([
                 );
             }
 
+            var signedStatusUpdated = false;
+            try {
+                markItemFulfillmentSigned(verification.itemFulfillmentInternalId);
+                signedStatusUpdated = true;
+            } catch (exception) {
+                log.error({
+                    title: 'OPS_SIGNED_PACKING_SLIP_STATUS_UPDATE_FAILURE',
+                    details: {
+                        itemFulfillmentInternalId: verification.itemFulfillmentInternalId,
+                        fileId: fileId,
+                        fieldId: FIELD_SIGNED_STATUS,
+                        error: exception.message || String(exception)
+                    }
+                });
+                return failureResponse(
+                    'SIGNED_STATUS_UPDATE_FAILURE',
+                    'The file was attached, but the Item Fulfillment signed status could not be updated.',
+                    {
+                        file_id: String(fileId),
+                        attached_to_item_fulfillment: itemFulfillmentAttached,
+                        attached_to_sales_order: salesOrderAttached,
+                        signed_status_updated: false,
+                        signed_status_update_error: exception.message || String(exception)
+                    }
+                );
+            }
+
             log.audit({
                 title: 'OPS_SIGNED_PACKING_SLIP_SUCCESS',
                 details: {
                     itemFulfillmentInternalId: verification.itemFulfillmentInternalId,
                     salesOrderInternalId: verification.salesOrderInternalId,
                     fileName: request.fileName,
-                    fileId: fileId
+                    fileId: fileId,
+                    signedStatusUpdated: signedStatusUpdated
                 }
             });
 
@@ -136,7 +165,8 @@ define([
                     file_id: String(fileId),
                     file_name: request.fileName,
                     attached_to_item_fulfillment: true,
-                    attached_to_sales_order: true
+                    attached_to_sales_order: true,
+                    signed_status_updated: signedStatusUpdated
                 }
             };
         } catch (exception) {
@@ -175,7 +205,7 @@ define([
             printedName: cleanText(payload.printed_name),
             signedAt: cleanText(payload.signed_at),
             submittedBy: cleanText(payload.submitted_by),
-            deliveryNotes: cleanText(payload.delivery_notes)
+            deliveryPhotoFileName: cleanText(payload.delivery_photo_file_name)
         };
 
         if (!request.itemFulfillmentInternalId) {
@@ -317,6 +347,27 @@ define([
         });
     }
 
+    function markItemFulfillmentSigned(itemFulfillmentInternalId) {
+        record.submitFields({
+            type: record.Type.ITEM_FULFILLMENT,
+            id: itemFulfillmentInternalId,
+            values: {
+                custbody_dt_signed_status: true
+            },
+            options: {
+                enableSourcing: false,
+                ignoreMandatoryFields: true
+            }
+        });
+        log.audit({
+            title: 'OPS_SIGNED_PACKING_SLIP_STATUS_UPDATED',
+            details: {
+                itemFulfillmentInternalId: itemFulfillmentInternalId,
+                fieldId: FIELD_SIGNED_STATUS
+            }
+        });
+    }
+
     function validateBase64Pdf(value) {
         if (!value) {
             throw makeIntegrationError('MISSING_PDF_DATA', 'Signed PDF data is required.');
@@ -341,8 +392,8 @@ define([
             'Signed at ' + request.signedAt,
             'Submitted by ' + request.submittedBy
         ];
-        if (request.deliveryNotes) {
-            parts.push('Notes: ' + request.deliveryNotes);
+        if (request.deliveryPhotoFileName) {
+            parts.push('Photo: ' + request.deliveryPhotoFileName);
         }
         return parts.join(' | ').slice(0, 999);
     }
