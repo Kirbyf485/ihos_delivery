@@ -27,6 +27,7 @@ const stubs = {
   'N/record': {
     Type: {
       ITEM_FULFILLMENT: 'itemfulfillment',
+      PURCHASE_ORDER: 'purchaseorder',
       SALES_ORDER: 'salesorder',
     },
   },
@@ -45,7 +46,10 @@ const stubs = {
     }),
   },
   'N/search': {
-    Type: { ITEM_FULFILLMENT: 'itemfulfillment' },
+    Type: {
+      ITEM_FULFILLMENT: 'itemfulfillment',
+      PURCHASE_ORDER: 'purchaseorder',
+    },
     Sort: { ASC: 'ASC' },
     createColumn: (options) => options,
   },

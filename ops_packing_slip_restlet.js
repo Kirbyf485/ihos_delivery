@@ -24,6 +24,8 @@ define([
 
     var PARAM_TEMPLATE_ID = 'custscript_ops_ps_template_id';
     var PARAM_CUSTOM_FORM_ID = 'custscript_ops_ps_custom_form_id';
+    var DOCUMENT_TYPE_ITEM_FULFILLMENT = 'item_fulfillment';
+    var DOCUMENT_TYPE_PURCHASE_ORDER = 'purchase_order';
 
     function get(requestParams) {
         return handleRequest(requestParams || {});
@@ -39,12 +41,19 @@ define([
         log.audit({
             title: 'OPS_PACKING_SLIP_REQUEST',
             details: {
+                documentType: request.documentType,
                 itemFulfillmentNumber: request.itemFulfillmentNumber || '',
-                hasInternalId: !!request.itemFulfillmentInternalId
+                hasInternalId: !!request.itemFulfillmentInternalId,
+                purchaseOrderNumber: request.purchaseOrderNumber || '',
+                hasPurchaseOrderInternalId: !!request.purchaseOrderInternalId
             }
         });
 
         try {
+            if (request.documentType === DOCUMENT_TYPE_PURCHASE_ORDER) {
+                return handlePurchaseOrderRequest(request);
+            }
+
             var resolution = resolveItemFulfillment(request);
             var fulfillmentRecord = resolution.fulfillmentRecord;
             var metadata = buildMetadata(fulfillmentRecord, resolution.itemFulfillmentInternalId);
@@ -91,6 +100,42 @@ define([
         }
     }
 
+    function handlePurchaseOrderRequest(request) {
+        var resolution = resolvePurchaseOrder(request);
+        var purchaseOrderRecord = resolution.purchaseOrderRecord;
+        var metadata = buildPurchaseOrderMetadata(purchaseOrderRecord, resolution.purchaseOrderInternalId);
+
+        log.audit({
+            title: 'OPS_PURCHASE_ORDER_RESOLVED',
+            details: {
+                purchaseOrderNumber: metadata.transaction_number,
+                purchaseOrderInternalId: metadata.internal_id
+            }
+        });
+
+        var pdfFile = renderPurchaseOrder(metadata.internal_id);
+        var pdfBase64 = toBase64PdfContents(pdfFile);
+        var fileName = 'Purchase Order - ' + sanitizeFileNamePart(metadata.transaction_number || metadata.internal_id) + '.pdf';
+
+        log.audit({
+            title: 'OPS_PURCHASE_ORDER_RENDER_SUCCESS',
+            details: {
+                purchaseOrderNumber: metadata.transaction_number,
+                purchaseOrderInternalId: metadata.internal_id
+            }
+        });
+
+        return {
+            ok: true,
+            purchase_order: metadata,
+            pdf: {
+                content_type: 'application/pdf',
+                file_name: fileName,
+                data: pdfBase64
+            }
+        };
+    }
+
     function parseRequestBody(requestBody) {
         if (!requestBody) {
             return {};
@@ -107,14 +152,37 @@ define([
 
     function normalizeRequest(payload) {
         var body = payload || {};
-        var itemFulfillmentInternalId = cleanText(firstPresent(body, [
+        var requestedDocumentType = cleanText(firstPresent(body, [
+            'transaction_type',
+            'transactionType',
+            'document_type',
+            'documentType'
+        ])).toLowerCase();
+        var purchaseOrderInternalId = cleanText(firstPresent(body, [
+            'purchase_order_internal_id',
+            'purchaseOrderInternalId',
+            'po_internal_id',
+            'poInternalId'
+        ]));
+        var purchaseOrderNumber = normalizePurchaseOrderNumber(firstPresent(body, [
+            'purchase_order_number',
+            'purchaseOrderNumber',
+            'po_number',
+            'poNumber'
+        ]));
+        var isPurchaseOrderRequest = requestedDocumentType === DOCUMENT_TYPE_PURCHASE_ORDER ||
+            requestedDocumentType === 'purchaseorder' ||
+            requestedDocumentType === 'po' ||
+            !!purchaseOrderInternalId ||
+            !!purchaseOrderNumber;
+        var itemFulfillmentInternalId = isPurchaseOrderRequest ? '' : cleanText(firstPresent(body, [
             'item_fulfillment_internal_id',
             'itemFulfillmentInternalId',
             'internal_id',
             'internalId',
             'id'
         ]));
-        var itemFulfillmentNumber = normalizeItemFulfillmentNumber(firstPresent(body, [
+        var itemFulfillmentNumber = isPurchaseOrderRequest ? '' : normalizeItemFulfillmentNumber(firstPresent(body, [
             'item_fulfillment_number',
             'itemFulfillmentNumber',
             'if_number',
@@ -124,6 +192,20 @@ define([
             'transactionNumber'
         ]));
 
+        if (isPurchaseOrderRequest) {
+            if (!purchaseOrderInternalId && !purchaseOrderNumber) {
+                throw makeIntegrationError(
+                    'MISSING_PURCHASE_ORDER',
+                    'Provide purchase_order_number or purchase_order_internal_id.'
+                );
+            }
+            return {
+                documentType: DOCUMENT_TYPE_PURCHASE_ORDER,
+                purchaseOrderInternalId: purchaseOrderInternalId,
+                purchaseOrderNumber: purchaseOrderNumber
+            };
+        }
+
         if (!itemFulfillmentInternalId && !itemFulfillmentNumber) {
             throw makeIntegrationError(
                 'MISSING_ITEM_FULFILLMENT',
@@ -132,6 +214,7 @@ define([
         }
 
         return {
+            documentType: DOCUMENT_TYPE_ITEM_FULFILLMENT,
             itemFulfillmentInternalId: itemFulfillmentInternalId,
             itemFulfillmentNumber: itemFulfillmentNumber
         };
@@ -146,6 +229,20 @@ define([
             throw makeIntegrationError(
                 'INVALID_ITEM_FULFILLMENT_NUMBER',
                 'Item Fulfillment number must look like IF123456.'
+            );
+        }
+        return text;
+    }
+
+    function normalizePurchaseOrderNumber(value) {
+        var text = cleanText(value).toUpperCase().replace(/\s+/g, '');
+        if (!text) {
+            return '';
+        }
+        if (!/^PO[0-9A-Z][0-9A-Z._-]{0,38}$/.test(text)) {
+            throw makeIntegrationError(
+                'INVALID_PURCHASE_ORDER_NUMBER',
+                'Purchase Order number must look like PO123456.'
             );
         }
         return text;
@@ -234,6 +331,89 @@ define([
         }
     }
 
+    function resolvePurchaseOrder(request) {
+        if (request.purchaseOrderInternalId) {
+            return resolvePurchaseOrderByInternalId(
+                request.purchaseOrderInternalId,
+                request.purchaseOrderNumber
+            );
+        }
+        return resolvePurchaseOrderByNumber(request.purchaseOrderNumber);
+    }
+
+    function resolvePurchaseOrderByInternalId(internalId, expectedNumber) {
+        var purchaseOrderRecord = loadPurchaseOrderRecord(internalId);
+        var actualNumber = normalizePurchaseOrderNumber(
+            safeGetValue(purchaseOrderRecord, 'tranid') ||
+            ''
+        );
+
+        if (expectedNumber && actualNumber && actualNumber !== expectedNumber) {
+            throw makeIntegrationError(
+                'PURCHASE_ORDER_MISMATCH',
+                'The provided Purchase Order number does not match the provided internal ID.'
+            );
+        }
+
+        return {
+            purchaseOrderInternalId: String(internalId),
+            purchaseOrderRecord: purchaseOrderRecord
+        };
+    }
+
+    function resolvePurchaseOrderByNumber(purchaseOrderNumber) {
+        var results = [];
+        search.create({
+            type: search.Type.PURCHASE_ORDER,
+            filters: [
+                ['mainline', 'is', 'T'],
+                'AND',
+                ['tranid', 'is', purchaseOrderNumber]
+            ],
+            columns: [
+                search.createColumn({ name: 'internalid', sort: search.Sort.ASC }),
+                'tranid'
+            ]
+        }).run().each(function (result) {
+            results.push({
+                internalId: result.getValue({ name: 'internalid' }),
+                tranId: result.getValue({ name: 'tranid' })
+            });
+            return results.length < 3;
+        });
+
+        if (results.length === 0) {
+            throw makeIntegrationError(
+                'PURCHASE_ORDER_NOT_FOUND',
+                'No Purchase Order was found for ' + purchaseOrderNumber + '.'
+            );
+        }
+        if (results.length > 1) {
+            throw makeIntegrationError(
+                'MULTIPLE_PURCHASE_ORDERS',
+                'More than one Purchase Order matched ' + purchaseOrderNumber + '.'
+            );
+        }
+
+        return resolvePurchaseOrderByInternalId(results[0].internalId, purchaseOrderNumber);
+    }
+
+    function loadPurchaseOrderRecord(internalId) {
+        try {
+            return record.load({
+                type: record.Type.PURCHASE_ORDER,
+                id: internalId,
+                isDynamic: false
+            });
+        } catch (exception) {
+            throw makeIntegrationError(
+                'PURCHASE_ORDER_NOT_FOUND',
+                'Purchase Order internal ID ' + internalId + ' was not found or is not accessible.',
+                exception
+            );
+        }
+    }
+
     function buildMetadata(fulfillmentRecord, internalId) {
         var createdFromId = cleanText(safeGetValue(fulfillmentRecord, 'createdfrom'));
         if (!createdFromId) {
@@ -254,6 +434,18 @@ define([
             fulfillment_date: dateToIso(safeGetValue(fulfillmentRecord, 'trandate')),
             shipping_address: cleanText(safeGetValue(fulfillmentRecord, 'shipaddress')),
             status: cleanText(safeGetText(fulfillmentRecord, 'status'))
+        };
+    }
+
+    function buildPurchaseOrderMetadata(purchaseOrderRecord, internalId) {
+        return {
+            internal_id: cleanText(internalId),
+            transaction_number: cleanText(
+                safeGetValue(purchaseOrderRecord, 'tranid')
+            ),
+            vendor_name: cleanText(safeGetText(purchaseOrderRecord, 'entity')),
+            purchase_order_date: dateToIso(safeGetValue(purchaseOrderRecord, 'trandate')),
+            status: cleanText(safeGetText(purchaseOrderRecord, 'status'))
         };
     }
 
@@ -311,6 +503,13 @@ define([
         return renderer.renderAsPdf();
     }
 
+    function renderPurchaseOrder(purchaseOrderInternalId) {
+        return render.transaction({
+            entityId: Number(purchaseOrderInternalId),
+            printMode: render.PrintMode.PDF
+        });
+    }
+
     function toBase64PdfContents(pdfFile) {
         var contents = pdfFile.getContents();
         if (!contents) {
@@ -355,8 +554,11 @@ define([
             message: exception.message || String(exception),
             causeName: exception.causeName || '',
             causeMessage: exception.causeMessage || '',
+            documentType: request.documentType || '',
             itemFulfillmentNumber: request.itemFulfillmentNumber || '',
-            hasInternalId: !!request.itemFulfillmentInternalId
+            hasInternalId: !!request.itemFulfillmentInternalId,
+            purchaseOrderNumber: request.purchaseOrderNumber || '',
+            hasPurchaseOrderInternalId: !!request.purchaseOrderInternalId
         };
     }
 
@@ -411,7 +613,7 @@ define([
     }
 
     function sanitizeFileNamePart(value) {
-        return cleanText(value).replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ') || 'Item Fulfillment';
+        return cleanText(value).replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ') || 'Transaction';
     }
 
     return {
