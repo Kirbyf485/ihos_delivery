@@ -22,6 +22,8 @@ define([
 
     var PARAM_SIGNED_FOLDER_ID = 'custscript_ops_signed_ps_folder_id';
     var FIELD_SIGNED_STATUS = 'custbody_dt_signed_status';
+    var DOCUMENT_TYPE_SIGNED = 'signed_packing_slip';
+    var DOCUMENT_TYPE_NO_SIGNATURE = 'no_signature_delivery_evidence';
     var MAX_BASE64_PDF_LENGTH = 40 * 1024 * 1024;
 
     function post(requestBody) {
@@ -44,18 +46,29 @@ define([
             details: {
                 itemFulfillmentInternalId: request.itemFulfillmentInternalId,
                 itemFulfillmentNumber: request.itemFulfillmentNumber,
-                fileName: request.fileName
+                fileName: request.fileName,
+                documentType: request.documentType,
+                updateSignedStatus: request.updateSignedStatus
             }
         });
 
         try {
             var folderId = resolveDestinationFolderId();
             var verification = verifyItemFulfillmentAndSalesOrder(request);
-            var duplicateFile = findExistingSignedPackingSlip(folderId, verification.itemFulfillmentNumber);
+            var duplicateFile = findExistingPackingSlip(
+                folderId,
+                verification.itemFulfillmentNumber,
+                request.documentType
+            );
             if (duplicateFile) {
+                var isNoSignatureDuplicate = request.documentType === DOCUMENT_TYPE_NO_SIGNATURE;
                 return failureResponse(
-                    'SIGNED_PACKING_SLIP_ALREADY_EXISTS',
-                    'A signed packing slip already exists for ' + verification.itemFulfillmentNumber + '.',
+                    isNoSignatureDuplicate
+                        ? 'NO_SIGNATURE_DELIVERY_EVIDENCE_ALREADY_EXISTS'
+                        : 'SIGNED_PACKING_SLIP_ALREADY_EXISTS',
+                    isNoSignatureDuplicate
+                        ? 'The no-location delivery exception for ' + verification.itemFulfillmentNumber + ' has already been submitted.'
+                        : 'A signed packing slip already exists for ' + verification.itemFulfillmentNumber + '.',
                     {
                         existing_file_id: duplicateFile.id,
                         file_id: duplicateFile.id
@@ -69,19 +82,21 @@ define([
             var itemFulfillmentAttachError = '';
             var salesOrderAttachError = '';
 
-            try {
-                attachFileToRecord(fileId, record.Type.ITEM_FULFILLMENT, verification.itemFulfillmentInternalId);
-                itemFulfillmentAttached = true;
-            } catch (exception) {
-                itemFulfillmentAttachError = exception.message || String(exception);
-                log.error({
-                    title: 'OPS_SIGNED_PACKING_SLIP_IF_ATTACH_FAILURE',
-                    details: {
-                        itemFulfillmentInternalId: verification.itemFulfillmentInternalId,
-                        fileId: fileId,
-                        error: itemFulfillmentAttachError
-                    }
-                });
+            if (request.attachToItemFulfillment) {
+                try {
+                    attachFileToRecord(fileId, record.Type.ITEM_FULFILLMENT, verification.itemFulfillmentInternalId);
+                    itemFulfillmentAttached = true;
+                } catch (exception) {
+                    itemFulfillmentAttachError = exception.message || String(exception);
+                    log.error({
+                        title: 'OPS_SIGNED_PACKING_SLIP_IF_ATTACH_FAILURE',
+                        details: {
+                            itemFulfillmentInternalId: verification.itemFulfillmentInternalId,
+                            fileId: fileId,
+                            error: itemFulfillmentAttachError
+                        }
+                    });
+                }
             }
 
             try {
@@ -99,10 +114,12 @@ define([
                 });
             }
 
-            if (!itemFulfillmentAttached || !salesOrderAttached) {
+            if ((request.attachToItemFulfillment && !itemFulfillmentAttached) || !salesOrderAttached) {
                 return failureResponse(
                     'PARTIAL_ATTACHMENT_FAILURE',
-                    partialAttachmentMessage(itemFulfillmentAttached, salesOrderAttached),
+                    request.attachToItemFulfillment
+                        ? partialAttachmentMessage(itemFulfillmentAttached, salesOrderAttached)
+                        : 'The delivery evidence file was saved, but the Sales Order attachment failed.',
                     {
                         file_id: String(fileId),
                         attached_to_item_fulfillment: itemFulfillmentAttached,
@@ -114,30 +131,32 @@ define([
             }
 
             var signedStatusUpdated = false;
-            try {
-                markItemFulfillmentSigned(verification.itemFulfillmentInternalId);
-                signedStatusUpdated = true;
-            } catch (exception) {
-                log.error({
-                    title: 'OPS_SIGNED_PACKING_SLIP_STATUS_UPDATE_FAILURE',
-                    details: {
-                        itemFulfillmentInternalId: verification.itemFulfillmentInternalId,
-                        fileId: fileId,
-                        fieldId: FIELD_SIGNED_STATUS,
-                        error: exception.message || String(exception)
-                    }
-                });
-                return failureResponse(
-                    'SIGNED_STATUS_UPDATE_FAILURE',
-                    'The file was attached, but the Item Fulfillment signed status could not be updated.',
-                    {
-                        file_id: String(fileId),
-                        attached_to_item_fulfillment: itemFulfillmentAttached,
-                        attached_to_sales_order: salesOrderAttached,
-                        signed_status_updated: false,
-                        signed_status_update_error: exception.message || String(exception)
-                    }
-                );
+            if (request.updateSignedStatus) {
+                try {
+                    markItemFulfillmentSigned(verification.itemFulfillmentInternalId);
+                    signedStatusUpdated = true;
+                } catch (exception) {
+                    log.error({
+                        title: 'OPS_SIGNED_PACKING_SLIP_STATUS_UPDATE_FAILURE',
+                        details: {
+                            itemFulfillmentInternalId: verification.itemFulfillmentInternalId,
+                            fileId: fileId,
+                            fieldId: FIELD_SIGNED_STATUS,
+                            error: exception.message || String(exception)
+                        }
+                    });
+                    return failureResponse(
+                        'SIGNED_STATUS_UPDATE_FAILURE',
+                        'The file was attached, but the Item Fulfillment signed status could not be updated.',
+                        {
+                            file_id: String(fileId),
+                            attached_to_item_fulfillment: itemFulfillmentAttached,
+                            attached_to_sales_order: salesOrderAttached,
+                            signed_status_updated: false,
+                            signed_status_update_error: exception.message || String(exception)
+                        }
+                    );
+                }
             }
 
             log.audit({
@@ -164,8 +183,8 @@ define([
                 signed_document: {
                     file_id: String(fileId),
                     file_name: request.fileName,
-                    attached_to_item_fulfillment: true,
-                    attached_to_sales_order: true,
+                    attached_to_item_fulfillment: itemFulfillmentAttached,
+                    attached_to_sales_order: salesOrderAttached,
                     signed_status_updated: signedStatusUpdated
                 }
             };
@@ -193,6 +212,11 @@ define([
     }
 
     function normalizeRequest(payload) {
+        var documentType = cleanText(payload.document_type).toLowerCase() || DOCUMENT_TYPE_SIGNED;
+        if (documentType !== DOCUMENT_TYPE_SIGNED && documentType !== DOCUMENT_TYPE_NO_SIGNATURE) {
+            throw makeIntegrationError('UNSUPPORTED_DOCUMENT_TYPE', 'Packing slip document type is not supported.');
+        }
+        var isNoSignatureEvidence = documentType === DOCUMENT_TYPE_NO_SIGNATURE;
         var request = {
             itemFulfillmentInternalId: cleanText(payload.item_fulfillment_internal_id),
             itemFulfillmentNumber: normalizeItemFulfillmentNumber(payload.item_fulfillment_number),
@@ -205,7 +229,13 @@ define([
             printedName: cleanText(payload.printed_name),
             signedAt: cleanText(payload.signed_at),
             submittedBy: cleanText(payload.submitted_by),
-            deliveryPhotoFileName: cleanText(payload.delivery_photo_file_name)
+            deliveryPhotoFileName: cleanText(payload.delivery_photo_file_name),
+            documentType: documentType,
+            attachToItemFulfillment: !isNoSignatureEvidence,
+            attachToSalesOrder: true,
+            updateSignedStatus: !isNoSignatureEvidence,
+            idempotencyKey: cleanText(payload.idempotency_key),
+            rejectIfExisting: isNoSignatureEvidence || payload.reject_if_existing === true
         };
 
         if (!request.itemFulfillmentInternalId) {
@@ -216,6 +246,10 @@ define([
         }
         if (!request.salesOrderInternalId) {
             throw makeIntegrationError('MISSING_SALES_ORDER_ID', 'Sales Order internal ID is required.');
+        }
+        if (isNoSignatureEvidence) {
+            request.fileName = 'NO SIGNATURE - Delivery Evidence - ' +
+                sanitizeFileNamePart(request.itemFulfillmentNumber) + '.pdf';
         }
         if (!request.fileName) {
             throw makeIntegrationError('MISSING_FILE_NAME', 'Signed PDF file name is required.');
@@ -285,9 +319,11 @@ define([
         };
     }
 
-    function findExistingSignedPackingSlip(folderId, itemFulfillmentNumber) {
+    function findExistingPackingSlip(folderId, itemFulfillmentNumber, documentType) {
         var duplicate = null;
-        var prefix = 'Signed Packing Slip - ' + sanitizeFileNamePart(itemFulfillmentNumber);
+        var prefix = documentType === DOCUMENT_TYPE_NO_SIGNATURE
+            ? 'NO SIGNATURE - Delivery Evidence - ' + sanitizeFileNamePart(itemFulfillmentNumber)
+            : 'Signed Packing Slip - ' + sanitizeFileNamePart(itemFulfillmentNumber);
         search.create({
             type: 'file',
             filters: [
@@ -384,14 +420,25 @@ define([
     }
 
     function buildFileDescription(request, verification) {
-        var parts = [
-            'Signed packing slip',
-            'IF ' + verification.itemFulfillmentNumber,
-            'SO ' + verification.salesOrderNumber,
-            'Received by ' + request.printedName,
-            'Signed at ' + request.signedAt,
-            'Submitted by ' + request.submittedBy
-        ];
+        var parts;
+        if (request.documentType === DOCUMENT_TYPE_NO_SIGNATURE) {
+            parts = [
+                'NO SIGNATURE - delivery evidence',
+                'IF ' + verification.itemFulfillmentNumber,
+                'SO ' + verification.salesOrderNumber,
+                'Submitted at ' + request.signedAt,
+                'Submitted by ' + request.submittedBy
+            ];
+        } else {
+            parts = [
+                'Signed packing slip',
+                'IF ' + verification.itemFulfillmentNumber,
+                'SO ' + verification.salesOrderNumber,
+                'Received by ' + request.printedName,
+                'Signed at ' + request.signedAt,
+                'Submitted by ' + request.submittedBy
+            ];
+        }
         if (request.deliveryPhotoFileName) {
             parts.push('Photo: ' + request.deliveryPhotoFileName);
         }

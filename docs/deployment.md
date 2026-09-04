@@ -111,7 +111,7 @@ Create or reuse an integration role with the least permissions needed to:
 - Edit the Item Fulfillment custom body field `custbody_dt_signed_status`.
 - Lists -> Documents and Files permission for File Cabinet access.
 
-The unsigned RESTlet does not modify NetSuite records. The signed RESTlet creates one File Cabinet PDF, attaches that same file to the Item Fulfillment and Sales Order, and updates only `custbody_dt_signed_status` on the Item Fulfillment after both attachments succeed.
+The unsigned RESTlet does not modify NetSuite records. For `signed_packing_slip`, the delivery-document RESTlet creates one File Cabinet PDF, attaches it to the Item Fulfillment and Sales Order, and updates `custbody_dt_signed_status` only after both attachments succeed. For `no_signature_delivery_evidence`, it attaches the PDF only to the Sales Order and never updates `custbody_dt_signed_status`.
 
 ## 10. Ops Portal environment variables
 

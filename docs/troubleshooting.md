@@ -44,6 +44,16 @@ Signed Packing Slip - <IF_NUMBER>
 
 This prevents accidental duplicate signed deliveries. Confirm whether the existing file is the correct signed delivery document before retrying.
 
+## `NO_SIGNATURE_DELIVERY_EVIDENCE_ALREADY_EXISTS`
+
+The RESTlet found an existing file whose name starts with:
+
+```text
+NO SIGNATURE - Delivery Evidence - <IF_NUMBER>
+```
+
+The existing evidence remains attached to the Sales Order. The RESTlet does not attach another copy and does not change the Item Fulfillment signed checkbox.
+
 ## `PARTIAL_ATTACHMENT_FAILURE`
 
 The signed PDF was saved in the File Cabinet, but one or both record attachments failed.

@@ -166,6 +166,22 @@ The browser must not call this RESTlet directly.
 }
 ```
 
+For a no-location delivery exception, include:
+
+```json
+{
+  "document_type": "no_signature_delivery_evidence",
+  "file_name": "NO SIGNATURE - Delivery Evidence - IF123456.pdf",
+  "update_signed_status": false,
+  "attach_to_item_fulfillment": false,
+  "attach_to_sales_order": true,
+  "idempotency_key": "no-signature-delivery-evidence:12345",
+  "reject_if_existing": true
+}
+```
+
+The RESTlet derives the safe attachment and status policy from `document_type`; callers cannot make a no-signature document update signed status.
+
 Validation rules:
 
 - `item_fulfillment_internal_id`, `item_fulfillment_number`, and `sales_order_internal_id` are required.
@@ -175,7 +191,8 @@ Validation rules:
 - `encoding` must be `base64`.
 - `data` must be base64 PDF data beginning with `%PDF` after decoding.
 - `custscript_ops_signed_ps_folder_id` must be configured with a numeric File Cabinet folder internal ID.
-- The RESTlet updates `custbody_dt_signed_status` to true on the Item Fulfillment only after the PDF is attached to both the Item Fulfillment and Sales Order.
+- `signed_packing_slip` attaches to both records and updates `custbody_dt_signed_status` to true only after both attachments succeed.
+- `no_signature_delivery_evidence` attaches only to the Sales Order and never updates `custbody_dt_signed_status`.
 
 ### Success Response
 
@@ -229,6 +246,7 @@ Common signed RESTlet codes:
 - `INVALID_PDF_DATA`
 - `PDF_TOO_LARGE`
 - `SIGNED_PACKING_SLIP_ALREADY_EXISTS`
+- `NO_SIGNATURE_DELIVERY_EVIDENCE_ALREADY_EXISTS`
 - `FILE_SAVE_FAILURE`
 - `PARTIAL_ATTACHMENT_FAILURE`
 - `SIGNED_STATUS_UPDATE_FAILURE`
