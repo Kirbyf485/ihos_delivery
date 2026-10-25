@@ -13,6 +13,7 @@ const calls = {
   createdFiles: [],
 };
 let duplicateFile = null;
+let lastSearch = null;
 
 const stubs = {
   'N/error': {
@@ -59,7 +60,7 @@ const stubs = {
   'N/search': {
     Sort: { DESC: 'DESC' },
     createColumn: (options) => options,
-    create: () => ({
+    create: (options) => (lastSearch = options, {
       run: () => ({
         each: (callback) => {
           if (duplicateFile) {
@@ -156,3 +157,20 @@ assert.strictEqual(
 assert.strictEqual(duplicateEvidenceResponse.existing_file_id, '55555');
 
 console.log('ops_signed_packing_slip_restlet_static_test passed');
+
+
+duplicateFile = null;
+const secondAttempt = exportedModule.post({...baseRequest,
+  file_name: 'evidence.pdf', document_type: 'no_signature_delivery_evidence', delivery_attempt: 2});
+assert.strictEqual(secondAttempt.success, true);
+assert.strictEqual(secondAttempt.delivery_attempt, 2);
+assert(lastSearch.filters[2][2].endsWith('IF123456 - Attempt 2 -'));
+assert(calls.createdFiles.at(-1).name.includes('IF123456 - Attempt 2 -'));
+duplicateFile = {internalid: '55555', name: calls.createdFiles.at(-1).name};
+const repeatedAttempt = exportedModule.post({...baseRequest,
+  file_name: 'evidence.pdf', document_type: 'no_signature_delivery_evidence', delivery_attempt: 2});
+assert.strictEqual(repeatedAttempt.success, false);
+assert.strictEqual(repeatedAttempt.error.code, 'NO_SIGNATURE_DELIVERY_EVIDENCE_ALREADY_EXISTS');
+assert.strictEqual(repeatedAttempt.delivery_attempt || repeatedAttempt.error.delivery_attempt, 2);
+const invalidAttempt = exportedModule.post({...baseRequest, file_name: 'evidence.pdf', delivery_attempt: -1});
+assert.strictEqual(invalidAttempt.success, false);

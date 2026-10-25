@@ -108,3 +108,20 @@ node tests/ops_signed_packing_slip_restlet_static_test.js
 - No customer-facing or mobile flow.
 - No offline mode, barcode scanning, or public employee app.
 - The RESTlet saves delivery PDFs and creates record attachments. It updates the Item Fulfillment `custbody_dt_signed_status` field only for `signed_packing_slip` documents, never for `no_signature_delivery_evidence`.
+
+### IHOS follow-up delivery attempts
+
+`ops_signed_packing_slip_restlet.js` accepts an optional positive integer
+`delivery_attempt` (default 1). The portal chooses this value for an authorized
+follow-up assignment. Attempts above 1 store no-location evidence with an
+`IF… - Attempt N - Evidence.pdf` filename and check duplicates within that
+attempt. Existing signed packing slips remain unique per IF. Success and
+confirmed duplicate responses echo `delivery_attempt`; older requests retain
+the original behavior. Prior files are never deleted, and this script does not
+change NetSuite's Delivery Driver field.
+
+Deploy this script before backend migration `20261024_141` and its corresponding
+IHOS release. The backend verifies the echoed attempt, retaining an unsubmitted
+entry when an older RESTlet is still deployed. Local tests cover the upload
+contract with NetSuite APIs stubbed; verify a second no-location submission in
+NetSuite after deploying. No script parameter changes are required.
