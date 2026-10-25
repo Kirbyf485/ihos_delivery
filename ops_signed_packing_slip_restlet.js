@@ -9,14 +9,16 @@ define([
     'N/log',
     'N/record',
     'N/runtime',
-    'N/search'
+    'N/search',
+    'N/query'
 ], function (
     error,
     file,
     log,
     record,
     runtime,
-    search
+    search,
+    query
 ) {
     'use strict';
 
@@ -39,6 +41,12 @@ define([
     }
 
     function handleRequest(payload) {
+        if (payload && payload.action === 'delivery_driver_choices') {
+            return {success: true, action: payload.action, drivers: activeDeliveryDrivers()};
+        }
+        if (payload && payload.action === 'reassign_delivery_driver') {
+            return reassignDeliveryDriver(payload);
+        }
         var request = normalizeRequest(payload || {});
 
         log.audit({
@@ -212,6 +220,49 @@ define([
             }
         }
         return requestBody;
+    }
+
+    function activeDeliveryDrivers() {
+        var rows = query.runSuiteQL({query: "SELECT id, name FROM customlist_lamesa_drivers WHERE isinactive = 'F' ORDER BY id"}).asMappedResults();
+        if (rows.length > 1000) {
+            throw makeIntegrationError('DELIVERY_DRIVER_LIMIT', 'Too many delivery drivers.');
+        }
+        return rows.filter(function (row) {
+            return cleanText(row.name).replace(/\s+/g, ' ').toLowerCase() !== 'george frye (test)';
+        }).map(function (row) { return {id: String(row.id), name: cleanText(row.name)}; });
+    }
+
+    function reassignDeliveryDriver(payload) {
+        var fulfillmentId = cleanText(payload.fulfillment_id);
+        var driverId = cleanText(payload.driver_id);
+        var expectedId = cleanText(payload.expected_driver_id);
+        if (!/^[1-9][0-9]{0,17}$/.test(fulfillmentId) || !/^[1-9][0-9]{0,17}$/.test(driverId) ||
+                !Object.prototype.hasOwnProperty.call(payload, 'expected_driver_id') ||
+                (expectedId && !/^[1-9][0-9]{0,17}$/.test(expectedId))) {
+            throw makeIntegrationError('INVALID_DELIVERY_DRIVER', 'Valid fulfillment, driver and expected driver IDs are required.');
+        }
+        if (!activeDeliveryDrivers().some(function (driver) { return driver.id === driverId; })) {
+            throw makeIntegrationError('INVALID_DELIVERY_DRIVER', 'Select an active delivery driver.');
+        }
+        var fulfillment = record.load({type: record.Type.ITEM_FULFILLMENT, id: fulfillmentId, isDynamic: false});
+        var signed = fulfillment.getValue({fieldId: FIELD_SIGNED_STATUS});
+        if (signed === true || signed === 'T') {
+            throw makeIntegrationError('DELIVERY_ALREADY_SIGNED', 'This fulfillment already has a signed copy.');
+        }
+        var current = cleanText(fulfillment.getValue({fieldId: 'custbody_delivery_driver'}));
+        if (current !== driverId) {
+            if (current !== expectedId) {
+                throw makeIntegrationError('DELIVERY_DRIVER_CONFLICT', 'The driver changed in NetSuite. Refresh before reassigning.');
+            }
+            fulfillment.setValue({fieldId: 'custbody_delivery_driver', value: Number(driverId)});
+            // Save the loaded record so NetSuite can reject concurrent edits.
+            fulfillment.save({enableSourcing: false, ignoreMandatoryFields: false});
+        }
+        var verified = record.load({type: record.Type.ITEM_FULFILLMENT, id: fulfillmentId, isDynamic: false});
+        if (cleanText(verified.getValue({fieldId: 'custbody_delivery_driver'})) !== driverId) {
+            throw makeIntegrationError('DELIVERY_DRIVER_CONFLICT', 'NetSuite did not retain the selected driver.');
+        }
+        return {success: true, action: 'reassign_delivery_driver', fulfillment_id: fulfillmentId, driver_id: driverId};
     }
 
     function normalizeRequest(payload) {

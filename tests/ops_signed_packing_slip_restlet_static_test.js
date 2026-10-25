@@ -16,6 +16,7 @@ let duplicateFile = null;
 let lastSearch = null;
 
 const stubs = {
+  'N/query': {runSuiteQL: () => ({asMappedResults: () => [{id: 91, name: 'Driver One'}, {id: 92, name: 'Driver Two'}, {id: 93, name: 'George Frye (Test)'}]})},
   'N/error': {
     create: ({ name, message }) => {
       const err = new Error(message);
@@ -174,3 +175,28 @@ assert.strictEqual(repeatedAttempt.error.code, 'NO_SIGNATURE_DELIVERY_EVIDENCE_A
 assert.strictEqual(repeatedAttempt.delivery_attempt || repeatedAttempt.error.delivery_attempt, 2);
 const invalidAttempt = exportedModule.post({...baseRequest, file_name: 'evidence.pdf', delivery_attempt: -1});
 assert.strictEqual(invalidAttempt.success, false);
+
+
+let selectedDriver = '91', signedDelivery = false, driverSaveCount = 0;
+stubs['N/record'].load = () => ({
+  getValue: ({fieldId}) => fieldId === 'custbody_delivery_driver' ? selectedDriver : signedDelivery,
+  setValue: ({fieldId, value}) => { assert.strictEqual(fieldId, 'custbody_delivery_driver'); selectedDriver = String(value); },
+  save: () => { driverSaveCount++; return 12345; },
+});
+const choicesResponse = exportedModule.post({action: 'delivery_driver_choices'});
+assert.strictEqual(choicesResponse.success, true);
+assert.strictEqual(choicesResponse.drivers.length, 2);
+const changeDriver = {action: 'reassign_delivery_driver', fulfillment_id: '12345', driver_id: '92', expected_driver_id: '91'};
+assert.strictEqual(exportedModule.post(changeDriver).success, true);
+assert.strictEqual(selectedDriver, '92');
+assert.strictEqual(driverSaveCount, 1);
+assert.strictEqual(exportedModule.post(changeDriver).success, true);
+assert.strictEqual(driverSaveCount, 1, 'Retry must not save the same driver again.');
+assert.strictEqual(exportedModule.post({...changeDriver, driver_id: '91', expected_driver_id: '90'}).error.code, 'DELIVERY_DRIVER_CONFLICT');
+signedDelivery = true;
+assert.strictEqual(exportedModule.post(changeDriver).error.code, 'DELIVERY_ALREADY_SIGNED');
+signedDelivery = false;
+assert.strictEqual(exportedModule.post({...changeDriver, driver_id: '93'}).error.code, 'INVALID_DELIVERY_DRIVER');
+assert.strictEqual(exportedModule.post({...changeDriver, driver_id: '0'}).error.code, 'INVALID_DELIVERY_DRIVER');
+assert.strictEqual(driverSaveCount, 1);
+console.log('delivery driver reassignment tests passed');

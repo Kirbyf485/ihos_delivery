@@ -125,3 +125,23 @@ IHOS release. The backend verifies the echoed attempt, retaining an unsubmitted
 entry when an older RESTlet is still deployed. Local tests cover the upload
 contract with NetSuite APIs stubbed; verify a second no-location submission in
 NetSuite after deploying. No script parameter changes are required.
+
+### Awaiting-signed-copy driver changes
+
+The signed upload RESTlet also supports authenticated POST actions:
+
+- `delivery_driver_choices`: returns up to 1,000 active entries from
+  `customlist_lamesa_drivers`, excluding the named test account.
+- `reassign_delivery_driver`: accepts `fulfillment_id`, `driver_id`, and
+  `expected_driver_id`. Validates the active choice, refuses a signed IF,
+  compares the existing driver, saves `custbody_delivery_driver`, and verifies
+  the result. If already assigned to the target driver, it returns success
+  without saving again. The success response echoes the action and both IDs.
+
+These actions use the existing authenticated RESTlet deployment. The integration
+role must be able to query the custom list and edit Item Fulfillments. Deploy
+this script before the corresponding IHOS backend release. No new script
+parameters. Saving uses normal NetSuite mandatory-field validation and user
+events; verify permissions and source validation in NetSuite during deployment.
+This action is only used for the creator's Awaiting signed copy reassignment;
+IHOS Follow-up attempts leave NetSuite's original driver unchanged.
