@@ -58,7 +58,8 @@ define([
             var duplicateFile = findExistingPackingSlip(
                 folderId,
                 verification.itemFulfillmentNumber,
-                request.documentType
+                request.documentType,
+                request.deliveryAttempt
             );
             if (duplicateFile) {
                 var isNoSignatureDuplicate = request.documentType === DOCUMENT_TYPE_NO_SIGNATURE;
@@ -70,6 +71,7 @@ define([
                         ? 'The no-location delivery exception for ' + verification.itemFulfillmentNumber + ' has already been submitted.'
                         : 'A signed packing slip already exists for ' + verification.itemFulfillmentNumber + '.',
                     {
+                        delivery_attempt: request.deliveryAttempt,
                         existing_file_id: duplicateFile.id,
                         file_id: duplicateFile.id
                     }
@@ -172,6 +174,7 @@ define([
 
             return {
                 success: true,
+                delivery_attempt: request.deliveryAttempt,
                 item_fulfillment: {
                     internal_id: verification.itemFulfillmentInternalId,
                     transaction_number: verification.itemFulfillmentNumber
@@ -231,6 +234,7 @@ define([
             submittedBy: cleanText(payload.submitted_by),
             deliveryPhotoFileName: cleanText(payload.delivery_photo_file_name),
             documentType: documentType,
+            deliveryAttempt: payload.delivery_attempt == null ? 1 : Number(payload.delivery_attempt),
             attachToItemFulfillment: !isNoSignatureEvidence,
             attachToSalesOrder: true,
             updateSignedStatus: !isNoSignatureEvidence,
@@ -238,6 +242,9 @@ define([
             rejectIfExisting: isNoSignatureEvidence || payload.reject_if_existing === true
         };
 
+        if (!Number.isInteger(request.deliveryAttempt) || request.deliveryAttempt < 1 || request.deliveryAttempt > 1000000) {
+            throw makeIntegrationError('INVALID_DELIVERY_ATTEMPT', 'Delivery attempt is invalid.');
+        }
         if (!request.itemFulfillmentInternalId) {
             throw makeIntegrationError('MISSING_ITEM_FULFILLMENT_ID', 'Item Fulfillment internal ID is required.');
         }
@@ -249,7 +256,8 @@ define([
         }
         if (isNoSignatureEvidence) {
             request.fileName = 'NO SIGNATURE - Delivery Evidence - ' +
-                sanitizeFileNamePart(request.itemFulfillmentNumber) + '.pdf';
+                sanitizeFileNamePart(request.itemFulfillmentNumber) +
+                (request.deliveryAttempt > 1 ? ' - Attempt ' + request.deliveryAttempt + ' - Evidence' : '') + '.pdf';
         }
         if (!request.fileName) {
             throw makeIntegrationError('MISSING_FILE_NAME', 'Signed PDF file name is required.');
@@ -319,11 +327,14 @@ define([
         };
     }
 
-    function findExistingPackingSlip(folderId, itemFulfillmentNumber, documentType) {
+    function findExistingPackingSlip(folderId, itemFulfillmentNumber, documentType, deliveryAttempt) {
         var duplicate = null;
         var prefix = documentType === DOCUMENT_TYPE_NO_SIGNATURE
             ? 'NO SIGNATURE - Delivery Evidence - ' + sanitizeFileNamePart(itemFulfillmentNumber)
             : 'Signed Packing Slip - ' + sanitizeFileNamePart(itemFulfillmentNumber);
+        if (documentType === DOCUMENT_TYPE_NO_SIGNATURE && deliveryAttempt > 1) {
+            prefix += ' - Attempt ' + deliveryAttempt + ' -';
+        }
         search.create({
             type: 'file',
             filters: [
